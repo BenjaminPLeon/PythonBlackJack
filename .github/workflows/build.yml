@@ -1,0 +1,28 @@
+name: "Build Python into exe"
+on:
+  pull_request:
+    branches:
+      -main
+
+jobs:
+  build-python:
+    name: "Build exe"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup
+        run: |
+          sudo apt install python3 python3-pip python3-venv -y
+          pip install pyinstaller
+      - name: create executable
+        run: |
+          cd /src
+          pyinstaller --onefile --noconsole main.py
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: main.exe
+          path: /src
+
+
