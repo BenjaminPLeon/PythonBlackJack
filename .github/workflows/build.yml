@@ -1,12 +1,13 @@
 name: "Build Python into exe"
 on:
   pull_request:
-    branches:
-      -main
+    types:
+      - closed
 
 jobs:
   build-python:
     name: "Build exe"
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
