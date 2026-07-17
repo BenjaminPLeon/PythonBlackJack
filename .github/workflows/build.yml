@@ -22,7 +22,7 @@ jobs:
 
       - name: create executable
         run: |
-          cd /src
+          cd src
           pyinstaller -F main.py --name "PythonBlackjack"
 
       - name: Upload Artifacts
