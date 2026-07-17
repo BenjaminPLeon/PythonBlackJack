@@ -1,71 +1,113 @@
-from random import shuffle
+from player import Player, Dealer
 from deck import Deck
 
+
 class Game:
-    def __init__(self, num_players, dealer_stand, num_decks, suits, faces, debug=False):
-        self.debug = debug
-        self.num_players = num_players
-        self.dealer_stand = dealer_stand
-        self.num_decks = num_decks
-        self.suits = suits
-        self.faces = faces
-        self.master_deck = []
-        self.player_hand = []
-        self.dealer_hand = []
-        for _ in range(self.num_decks):
-            deck_builder = Deck(suits, faces)
-            for c in deck_builder.cards:
-                self.master_deck.append(c)
-        shuffle(self.master_deck)
-        self.game_over = False
-        self.player_value = 0
-            
-    def initial_deal(self):
-        # burn top card, then player gets 1, then dealer gets 1, then player gets second, then dealer gets second
-        self.master_deck =  self.master_deck[1:]
-        self.player_hand.append(self.master_deck.pop())
-        self.dealer_hand.append(self.master_deck.pop())
-        self.player_hand.append(self.master_deck.pop())
-        self.dealer_hand.append(self.master_deck.pop())
-        
-    def print_dealer_hand(self, initial = True):
-        if initial:
-            print("dealer: " + str(self.dealer_hand[0].suit) + "/" + str(self.dealer_hand[0].face) + " | ?" )
-        
-    def print_player_hand(self):
-        self.output = "Player: "
-        for c in self.player_hand[:-1]:
-            self.output += str(c.suit) + "/" + str(c.face) + " | "
-        self.output += str(self.player_hand[-1].suit) + "/" + str(self.player_hand[-1].face)
-        print(self.output)
-        
-    def check_values(self, initial=False):
-        for c in self.player_hand:
-            self.player_value += c.value
-        if initial and self.player_value == 21:
-            print("Blackjack!")
-            self.game_over = True
-        elif self.player_value > 21:
-            
-        # elif self.player_value > 21:
-        #     for v in self.player_hand.value: # Using a list of cards currently
-        #         if v == 11:
-        #             self.player_value = self.player_value - 10
-        #     if self.debug : print("Player value: " + str(self.player_value))
-        # elif self.player_value > 21:
-        #     print ("Bust!")
-        #     self.game_over = True
+    """Orchestrates a full game session across multiple rounds."""
+
+    def __init__(self, player_name="Player", starting_chips=100, num_decks=1):
+        self.deck = Deck(num_decks=num_decks)
+        self.player = Player(player_name, chips=starting_chips)
+        self.dealer = Dealer()
+
+    def play(self):
+        print("Welcome to Blackjack!\n")
+        while self.player.chips > 0:
+            self.play_round()
+            if self.player.chips <= 0:
+                print("You're out of chips! Game over.")
+                break
+            if not self._play_again():
+                break
+        print(f"\nThanks for playing, {self.player.name}! Final chips: {self.player.chips}")
+
+    def play_round(self):
+        self.player.reset()
+        self.dealer.reset()
+        self.player.place_bet()
+
+        # Initial deal
+        for _ in range(2):
+            self.player.hit(self.deck)
+            self.dealer.hit(self.deck)
+
+        print()
+        self.player.show_hand()
+        self.dealer.show_hand(hide_first=True)
+
+        # Check for immediate blackjacks
+        if self.player.hand.is_blackjack or self.dealer.hand.is_blackjack:
+            self._resolve_blackjacks()
+            return
+
+        self._player_turn()
+
+        if self.player.hand.is_bust:
+            print(f"\n{self.player.name} busts!")
+            self.player.lose_bet()
+            return
+
+        self._dealer_turn()
+        self._determine_winner()
+
+    def _player_turn(self):
+        while True:
+            choice = input("\nDo you want to (h)it or (s)tand? ").strip().lower()
+            if choice == "h":
+                self.player.hit(self.deck)
+                self.player.show_hand()
+                if self.player.hand.is_bust:
+                    return
+            elif choice == "s":
+                return
+            else:
+                print("Please enter 'h' or 's'.")
+
+    def _dealer_turn(self):
+        print()
+        self.dealer.show_hand()
+        while self.dealer.should_hit():
+            print("Dealer hits.")
+            self.dealer.hit(self.deck)
+            self.dealer.show_hand()
+        if self.dealer.hand.is_bust:
+            print("Dealer busts!")
+
+    def _resolve_blackjacks(self):
+        player_bj = self.player.hand.is_blackjack
+        dealer_bj = self.dealer.hand.is_blackjack
+        self.dealer.show_hand()
+
+        if player_bj and dealer_bj:
+            print("\nBoth have Blackjack — it's a push!")
+            self.player.push_bet()
+        elif player_bj:
+            print(f"\n{self.player.name} has Blackjack! Pays 3:2.")
+            self.player.win_bet(multiplier=1.5)
         else:
-            print("Player value: " + str(self.player_value))
-            
-    def get_input(self):
-        if not self.game_over:
-            answer = input("What do you wish to do? (Hit, Stand)")
-            if answer == "H":
-                self.hit()
-            
-    
-    def hit(self):
-        self.player_hand.append(self.master_deck.pop())
-        self.print_player_hand()
-        self.check_values()
+            print("\nDealer has Blackjack. You lose.")
+            self.player.lose_bet()
+
+    def _determine_winner(self):
+        player_value = self.player.hand.value
+        dealer_value = self.dealer.hand.value
+
+        print(f"\n{self.player.name}: {player_value} | Dealer: {dealer_value}")
+
+        if self.dealer.hand.is_bust or player_value > dealer_value:
+            self.player.win_bet()
+        elif player_value < dealer_value:
+            self.player.lose_bet()
+        else:
+            print("It's a push!")
+            self.player.push_bet()
+
+    def _play_again(self):
+        choice = input("\nPlay another round? (y/n): ").strip().lower()
+        return choice == "y"
+
+
+if __name__ == "__main__":
+    name = input("Enter your name: ").strip() or "Player"
+    game = Game(player_name=name, starting_chips=100, num_decks=1)
+    game.play()
