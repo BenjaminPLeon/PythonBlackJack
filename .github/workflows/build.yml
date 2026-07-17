@@ -29,6 +29,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: PythonBlackjack.exe
-          path: /dist
+          path: src/dist/
 
 
